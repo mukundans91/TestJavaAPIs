@@ -21,7 +21,7 @@ public class CompletableFutureTests {
         List<CompletableFuture<String>> futures = new ArrayList<>();
         while (true){
             if(tests.getSecondCount() < tests.max) {
-                CompletableFuture<String> data = tests.getData("Complete NonBlock " + tests.secondCount, tests.executorService);
+                CompletableFuture<String> data = tests.getDataAsync("Complete NonBlock " + tests.secondCount, tests.executorService);
                 data.thenAccept(System.out::println);
                 futures.add(data);
                 tests.increaseSecondCount(1);
@@ -43,6 +43,11 @@ public class CompletableFutureTests {
                     futures.clear();
                     allOf.thenRun(tests::clearSecondCount)
                             .exceptionally(r -> {
+                                /*
+                                On exception does not guarantee execution of other futures
+                                In this case when a getDataAsync call fails in the thread randomly due the the condition of rand int < 10
+                                Then other futures might or might not run. not guaranteed to not execute.
+                                 */
                                 System.out.println(r.getLocalizedMessage());
                                 try {
                                     Thread.sleep(10000);
@@ -52,6 +57,8 @@ public class CompletableFutureTests {
                                 tests.clearSecondCount();
                                 return null;
                             });
+                } else {
+                    //Do some useful work
                 }
             }
 
@@ -84,20 +91,6 @@ public class CompletableFutureTests {
         data.thenAccept(System.out::println);
     }
 
-    private void completeNonBlock() {
-
-//        if(secondCount < max) {
-//            CompletableFuture<String> data = getData(secondCount + " Complete NonBlock " + count++, executorService);
-//            data.thenApply(r -> decreaseSecondCount(r));
-//            secondCount++;
-//        }
-    }
-
-    private Void decreaseSecondCount(String r) {
-        System.out.println(r);
-//        secondCount--;
-        return null;
-    }
 
     private CompletableFuture<String> getDataNever(String some_data) {
         CompletableFuture<String> promise = new CompletableFuture<>();
@@ -122,7 +115,7 @@ public class CompletableFutureTests {
     }
 
 
-    private CompletableFuture<String> getData(String some_data, ExecutorService executorService) {
+    private CompletableFuture<String> getDataAsync(String some_data, ExecutorService executorService) {
         System.out.println("batch number " + secondCount);
         CompletableFuture<String> promise = new CompletableFuture<>();
 
@@ -135,9 +128,6 @@ public class CompletableFutureTests {
                                 throw new Exception("Random exception " + some_data);
                             }
                             Thread.sleep(1000);
-//                            System.out.println(System.currentTimeMillis());
-//                            System.out.println(Thread.currentThread().getName());
-//                            System.out.println(some_data);
                             promise.complete(some_data);
                         } catch (Exception e) {
                             promise.completeExceptionally(e);
